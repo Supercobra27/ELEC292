@@ -54,7 +54,7 @@ print(arrangedarray[:,0::2,0::2]) # print all corners
 
 # Question 5 [Selecting Cells in Arrays]
 selectarray = np.arange(27).reshape(3,3,3)
-print(selectarray[[0,1,2],[1,2,0],[1,2,0]])
+print(selectarray[0:1:2,1:2:0,1:2:0])
 print('\n')
 print(selectarray[[1,1],[0,2],[0,2]])
 print('\n')
