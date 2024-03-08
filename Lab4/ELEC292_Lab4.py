@@ -82,6 +82,7 @@ def Q89():
     plt.xlabel('t-SNE Component 1')
     plt.ylabel('t-SNE Component 2')
 
+# Question 9
     data = dataset.iloc[:, :-1]
     labels = dataset.iloc[:, -1]
     sc = StandardScaler()
