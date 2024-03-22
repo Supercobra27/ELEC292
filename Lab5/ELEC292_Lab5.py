@@ -73,18 +73,43 @@ x_in = np.arange(n_sample)
 ax.plot(x_in,dataset, linewidth=1)
 
 dataset = pd.read_csv("noisy-sine.csv")
-dataset.rolling(5).mean()
-ax.plot(x_in, dataset, linewidth=1)
+win5 = dataset.rolling(5).mean()
+ax.plot(x_in, win5, linewidth=1)
 
 dataset = pd.read_csv("noisy-sine.csv")
-dataset.rolling(31).mean()
-ax.plot(x_in, dataset, linewidth=1)
+win31 = dataset.rolling(31).mean()
+ax.plot(x_in, win31, linewidth=1)
 
 dataset = pd.read_csv("noisy-sine.csv")
-dataset.rolling(51).mean()
-ax.plot(x_in, dataset, linewidth=1)
+win51 = dataset.rolling(51).mean()
+ax.plot(x_in, win51, linewidth=1)
 
-ax.legend(['1','2','3','4'])
+ax.legend(['Noisy','5','31','51'])
 ax.set_xlabel('x')
 ax.set_ylabel('y')
+plt.show()
+
+# Q6
+dataset = pd.read_csv("ECG-sample.csv")
+x_in = range(len(dataset))
+
+fig, ax = plt.subplots(figsize=(10,10))
+ax.plot(x_in, dataset)
+
+features = pd.DataFrame(columns=['mean','std','max','min'])
+window_size = 31
+features['mean'] = dataset.rolling(window=window_size).mean()
+features['std'] = dataset.rolling(window=window_size).std()
+features['max'] = dataset.rolling(window=window_size).max()
+features['min'] = dataset.rolling(window=window_size).min()
+
+print(features)
+
+std = features.iloc[:, 1]
+x_in = range(len(std))
+
+fig,ax = plt.subplots(figsize=(10,10))
+ax.plot(x_in, std)
+ax.set_xlabel('Number of the window')
+ax.set_ylabel('value of the std')
 plt.show()
