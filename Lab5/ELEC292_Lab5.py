@@ -68,8 +68,7 @@ print("Value at index [17, 0]:", dataset.iloc[17, 0])
 # Q5
 dataset = pd.read_csv("noisy-sine.csv")
 fig, ax = plt.subplots(figsize=(10,10))
-n_sample = 700
-x_in = np.arange(n_sample)
+x_in = range(len(dataset))
 ax.plot(x_in,dataset, linewidth=1)
 
 dataset = pd.read_csv("noisy-sine.csv")
