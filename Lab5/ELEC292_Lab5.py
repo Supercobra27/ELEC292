@@ -97,10 +97,10 @@ ax.plot(x_in, dataset)
 
 features = pd.DataFrame(columns=['mean','std','max','min'])
 window_size = 31
-features['mean'] = dataset.rolling(window=window_size).mean()
-features['std'] = dataset.rolling(window=window_size).std()
-features['max'] = dataset.rolling(window=window_size).max()
-features['min'] = dataset.rolling(window=window_size).min()
+features['mean'] = dataset.rolling(window=window_size).mean().dropna()
+features['std'] = dataset.rolling(window=window_size).std().dropna()
+features['max'] = dataset.rolling(window=window_size).max().dropna()
+features['min'] = dataset.rolling(window=window_size).min().dropna()
 
 print(features)
 
