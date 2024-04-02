@@ -16,7 +16,7 @@ with h5py.File('./hdf5_data.h5','w') as hdf:
 with h5py.File('./hdf5_data.h5','r') as hdf:
     ls = list(hdf.keys())
     print(ls)
-    d1 = hdf.get('dataset1')
+    d1 = g1.get('dataset1')
     print(type(d1))
     a1 = np.array(d1)
     print(type(a1))
