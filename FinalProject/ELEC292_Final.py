@@ -4,6 +4,8 @@ import h5py
 import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 
 # Data Processing
 def process_data(member_name, walk_csv, jump_csv):
@@ -42,13 +44,12 @@ walk1_segments = segment_data(walk1_data, window_size)
 walk2_segments = segment_data(walk2_data, window_size)
 walk3_segments = segment_data(walk3_data, window_size)
 
-# Shuffle the segmented data
 np.random.shuffle(walk1_segments)
 np.random.shuffle(walk2_segments)
 np.random.shuffle(walk3_segments)
 
 # Combine the segmented data
-combined_segments = np.concatenate([walk1_segments, walk2_segments, walk3_segments])
+combined_segments = np.concatenate([walk1_segments, walk2_segments, walk3_segments]) #this doesnt do anything?
 
 # Generate labels for the segmented data (assuming 0 for 'walk1', 1 for 'walk2', and 2 for 'walk3')
 labels = np.array([0]*len(walk1_segments) + [1]*len(walk2_segments) + [2]*len(walk3_segments))
@@ -63,8 +64,8 @@ with h5py.File('main_data.hdf5', 'a') as hdf:
     g1 = hdf.create_group('/model')
     g1.create_dataset('X_train', data=X_train)
     g1.create_dataset('X_test', data=X_test)
-    g1.create_dataset('y_train', data=y_train)
-    g1.create_dataset('y_test', data=y_test)
+    g1.create_dataset('Y_train', data=y_train)
+    g1.create_dataset('Y_test', data=y_test)
 
 
 
@@ -92,22 +93,19 @@ def visualize_data(walk, jump, w_time, j_time, window_size):
         ax.set_ylabel('Linear Acceleration {}'.format(['X', 'Y', 'Z'][i]))
         ax.legend()
 
-def window_enumeration(window_arr):
+def window_enumeration(window_arr, data):
     for i, window_size in enumerate(window_arr):
-        for i, member_data in enumerate(data):
+        for j, member_data in enumerate(data):
             visualize_data(member_data[0], member_data[1], member_data[2], member_data[3], window_size)
-    
-def pca_analysis():
-    return 1
-
-def tsne_analysis():
-    return 1
 
 with h5py.File('main_data.hdf5','r') as hdf:
     data = [get_data('member1'), get_data('member2'), get_data('member3')]
     window_sizes = [5, 31, 51]
-    window_enumeration(window_sizes)
-    pca_analysis()
-    tsne_analysis()
-    plt.show()
+    window_enumeration(window_sizes, data)
+    model = LogisticRegression()
+    model.fit(hdf['/model/X_train'], hdf['/model/Y_train'])
+    y_pred = model.predict(hdf['/model/X_train'])
+    accuracy = accuracy_score(y_test, y_pred)
+    print("Accuracy:", accuracy)
+plt.show()
 
