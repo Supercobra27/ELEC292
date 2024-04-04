@@ -97,11 +97,6 @@ def Q89():
     plt.ylabel('Principal Component 9')
 
 # Function Calls
-Q1()
-Q3()
-Q4()
-Q5()
-Q6()
 Q89()
 
 plt.show()
