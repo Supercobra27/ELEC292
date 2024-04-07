@@ -2,76 +2,122 @@
 import numpy as np
 import h5py
 import pandas as pd
+import os
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
+from hdffunctions import process_data, segment, LabelData, get_data, get_segment
 
-# Data Processing
-def process_data(member_name, walk_csv, jump_csv):
-    walk_data = pd.read_csv(walk_csv)
-    jump_data = pd.read_csv(jump_csv)
-    with h5py.File('main_data.hdf5', 'a') as hdf:
-        mg = hdf.create_group('/'+member_name)
-        mg.create_dataset('walk', data=walk_data)
-        mg.create_dataset('jump', data=jump_data)
-        return walk_data, jump_data
+if os.path.exists("main_data.hdf5"):
+    os.remove("main_data.hdf5")
 
-m1walk, m1jump = process_data('member1', 'RyanWalk.csv', 'RyanJump.csv')
-m2walk, m2jump = process_data('member2', 'FosterWalk.csv', 'FosterJump.csv')
-m3walk, m3jump = process_data('member3', 'JuliaWalk.csv', 'JuliaJump.csv')
+m1 = process_data('member1', 'RyanWalk.csv', 'RyanJump.csv')
+m2 = process_data('member2', 'FosterWalk.csv', 'FosterJump.csv')
+m3 = process_data('member3', 'JuliaWalk.csv', 'JuliaJump.csv')
+segment(get_data('member2')[0], 'walk', 'member2') #the worst
+segment(get_data('member2')[1], 'jump', 'member2')
+
+def plot_data(data, activity, name, window_size):
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+    axes[0].plot(data[1], data[2].rolling(window_size).mean(),
+                 label="Linear Acceleration x (m/s^2)")
+    axes[0].set_ylabel("X Acceleration (m/s^2)")
+    axes[0].legend()
+    axes[0].grid(True)
+    axes[1].plot(data[1], data[3].rolling(window_size).mean(),
+                 label="Linear Acceleration y (m/s^2)", color='orange')
+    axes[1].set_ylabel("Y Acceleration (m/s^2)")
+    axes[1].legend()
+    axes[1].grid(True)
+    axes[2].plot(data[1], data[4].rolling(window_size).mean(),
+                 label="Linear Acceleration z (m/s^2)", color='green')
+    axes[2].set_xlabel("Time (s)")
+    axes[2].set_ylabel("Z Acceleration (m/s^2)")
+    axes[2].legend()
+    axes[2].grid(True)
+    plt.suptitle("Acceleration VS Time for "+name+" | "+activity, fontsize=20)
+
+def visualize_data(member_arr):
+    for member in member_arr:
+        walk_data, jump_data = get_data(member)
+        plot_data(walk_data, 'walking', member, 5)
+        plot_data(jump_data, 'jumping', member, 5)
+
+member_arr = ['member1','member2', 'member3']
+plot_data(get_segment('walk1004', 'member2'), 'walking', 'member', 5)
+plt.show()
+# ADD MORE GRAPHS
+
+def extract_from(data, window_size):
+    features = pd.DataFrame()
+    for column in data.columns:
+        feature_column = pd.DataFrame()
+        feature_column['mean'] = data[column].rolling(window=window_size).mean()
+        feature_column['std'] = data[column].rolling(window=window_size).std()
+        feature_column['max'] = data[column].rolling(window=window_size).max()
+        feature_column['min'] = data[column].rolling(window=window_size).min()
+        feature_column['kurtosis'] = data[column].rolling(window=window_size).kurt()
+        feature_column['skew'] = data[column].rolling(window=window_size).skew()
+        feature_column['median'] = data[column].rolling(window=window_size).median()
+        feature_column['range'] = data[column].rolling(window=window_size).max() - data[column].rolling(window=window_size).min()
+        feature_column['sum'] = data[column].rolling(window=window_size).sum()
+        feature_column['variance'] = data[column].rolling(window=window_size).var()
+        features = pd.concat([features, feature_column], axis=1).dropna()
+        return features
+
+
+def extract_features(member_arr, window_size):
+    for member in member_arr:
+        walk_data, jump_data = get_data(member)
+        walk_data = walk_data.iloc[:, 3:]
+        jump_data = jump_data.iloc[:, 3:]
+        features = [extract_from(walk_data, window_size), extract_from(jump_data, window_size)]
+        return features
+
+data = get_segment('walk1004', 'member2')
+data2 = data
+data = data.iloc[:, 2:5]
+print(data)
+
+window_size = 5
+features = pd.DataFrame()
+for column in data.columns:
+    feature_column = pd.DataFrame()
+    feature_column['mean'] = data[column].rolling(window=window_size).mean()
+    feature_column['std'] = data[column].rolling(window=window_size).std()
+    feature_column['max'] = data[column].rolling(window=window_size).max()
+    feature_column['min'] = data[column].rolling(window=window_size).min()
+    feature_column['kurtosis'] = data[column].rolling(window=window_size).kurt()
+    feature_column['skew'] = data[column].rolling(window=window_size).skew()
+    feature_column['median'] = data[column].rolling(window=window_size).median()
+    feature_column['range'] = data[column].rolling(window=window_size).max() - data[column].rolling(window=window_size).min()
+    feature_column['sum'] = data[column].rolling(window=window_size).sum()
+    feature_column['variance'] = data[column].rolling(window=window_size).var()
+    features = pd.concat([features, feature_column], axis=1).dropna()
+
+# features = extract_from(data, window_size)
+
+print(features)
+# Normalization
+genscale = StandardScaler()
+data = pd.DataFrame(genscale.fit_transform(data))
+print(data)
+
+scaler = StandardScaler()
+model = LogisticRegression()
+
+data = data2.iloc[:, 2:5]
+labels = data2.iloc[:, 0]
 
 # Split the data into training and testing sets (90% for training, 10% for testing)
-X_train, X_test, y_train, y_test = train_test_split(m1walk.iloc[:, :-1], m1walk.iloc[:, -1], test_size=0.1, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.1, random_state=42)
 
+clf = make_pipeline(scaler, model)
 
-# Store the new dataset in the HDF5 file
-with h5py.File('main_data.hdf5', 'a') as hdf:
-
-    g1 = hdf.create_group('/model')
-    g1.create_dataset('X_train', data=X_train)
-    g1.create_dataset('X_test', data=X_test)
-    g1.create_dataset('Y_train', data=y_train)
-    g1.create_dataset('Y_test', data=y_test)
-
-def get_data(dataset_name):
-    with h5py.File('main_data.hdf5', 'r') as hdf:
-        walk_data = pd.DataFrame(np.array(hdf['/'+dataset_name+'/walk']))
-        jump_data = pd.DataFrame(np.array(hdf['/'+dataset_name+'/jump']))
-        walk_time = walk_data.iloc[:, 0]
-        jump_time = jump_data.iloc[:, 0]
-        return walk_data, jump_data, walk_time, jump_time
-    
-def visualize_data(walk, jump, w_time, j_time, window_size):
-    fig, axes = plt.subplots(3, 1, figsize=(10, 15))
-    for i, ax in enumerate(axes):
-        ax.plot(w_time, walk.iloc[:, i+1].rolling(window_size).mean(), linewidth=1, label='Walk')
-        ax.plot(j_time, jump.iloc[:, i+1].rolling(window_size).mean(), linewidth=1, label='Jump')
-        ax.set_xlabel('Data Points')
-        ax.set_ylabel('Linear Acceleration {}'.format(['X', 'Y', 'Z'][i]))
-        ax.legend()
-
-def window_enumeration(window_arr, data):
-    for i, window_size in enumerate(window_arr):
-        for j, member_data in enumerate(data):
-            visualize_data(member_data[0], member_data[1], member_data[2], member_data[3], window_size)
-
-with h5py.File('main_data.hdf5','r') as hdf:
-    data = [get_data('member1'), get_data('member2'), get_data('member3')]
-    window_sizes = [5]
-    window_enumeration(window_sizes, data)
-
-    features = pd.DataFrame(columns=['mean', 'std', 'max', 'kurtosis', 'skew', 'median', 'range']) #Add shit here
-    features['mean'] = data
-
-    scaler = StandardScaler()
-    model = LogisticRegression()
-    clf = make_pipeline(scaler, model)
-    clf.fit(hdf['/model/X_train'], hdf['/model/Y_train'])
-    y_pred = clf.predict(hdf['/model/X_train'])
-    accuracy = clf.accuracy_score(y_test, y_pred)
-    print("Accuracy:", accuracy)
-plt.show()
-
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print("Accuracy:", accuracy)
