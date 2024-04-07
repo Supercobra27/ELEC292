@@ -270,3 +270,4 @@ print('the AUC is:', auc)
 fpr, tpr, thresholds = roc_curve(Y_test, y_clf_prob[:, 1], pos_label=clf.classes_[1]) # FPR/TPR
 roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=auc).plot() # plot ROC
 plt.show()
+# model.predict() # Put DataFrame in here
