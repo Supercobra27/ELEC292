@@ -24,15 +24,16 @@ csvs = [
     "JuliaJump.csv"
 ]
 
+filepaths = [
+    "main_data.hdf5",
+    "features.csv"
+]
+
 data_list = []
 
-# Remove pre-existing HDF5 file to prevent overlap
-if os.path.exists("main_data.hdf5"):
-    os.remove("main_data.hdf5")
-
-# Remove pre-existing features file to prevent overlap
-if os.path.exists("features.csv"):
-    os.remove("features.csv")
+for file in filepaths:
+    if os.path.exists(file):
+        os.remove(file)
 
 def segment(dataset, window_size=5):
     # Calculate the number of windows
@@ -97,6 +98,15 @@ total_jump = [
     m3jump
 ]
 
+categories = [
+    "Time (s)",
+    "Linear Acceleration x (m/s^2)",
+    "Linear Acceleration y (m/s^2)",
+    "Linear Acceleration z (m/s^2)",
+    "Absolute acceleration (m/s^2)", 
+    "label"
+]
+
 # Combine all relevant datasets into dataframes
 combined_df = pd.concat(total_data, ignore_index=True)
 walk_df = pd.concat(total_walk, ignore_index=True)
@@ -105,10 +115,10 @@ jump_df = pd.concat(total_jump, ignore_index=True)
 # Check NaN Amounts
 print("Checking NaN values within dataframe...\n")
 combined_df = combined_df.iloc[:, 0:6]
-print(combined_df.isna().sum())
+print(combined_df.iloc[:, 0:5].isna().sum())
 print("\nNaN Values within dataframe after dropna()...\n")
 combined_df = combined_df.dropna()
-print(combined_df.isna().sum())
+print(combined_df.iloc[:, 0:5].isna().sum())
 
 segmented_data_walking = segment(walk_df)
 segmented_data_jumping = segment(jump_df)
@@ -155,18 +165,17 @@ with h5py.File("main_data.hdf5", 'a') as hdf:
 def plot_motion(data, activity, name, window_size=5):
     fig, axes = plt.subplots(4, 1, figsize=(12, 10), sharex=True)
     axes[0].plot(data.iloc[:, 0], data.iloc[:, -5].rolling(window_size).mean(),
-                 label="Linear Acceleration x (m/s^2)")
+                 label="Linear Acceleration X (m/s^2)")
     axes[0].set_ylabel("X Acceleration (m/s^2)")
     axes[0].legend()
     axes[0].grid(True)
     axes[1].plot(data.iloc[:, 0], data.iloc[:, -4].rolling(window=window_size).mean(),
-                 label="Linear Acceleration y (m/s^2)", color='orange')
+                 label="Linear Acceleration Y (m/s^2)", color='orange')
     axes[1].set_ylabel("Y Acceleration (m/s^2)")
     axes[1].legend()
     axes[1].grid(True)
     axes[2].plot(data.iloc[:, 0], data.iloc[:, -3].rolling(window=window_size).mean(),
                  label="Linear Acceleration z (m/s^2)", color='green')
-    axes[2].set_xlabel("Time (s)")
     axes[2].set_ylabel("Z Acceleration (m/s^2)")
     axes[2].legend()
     axes[2].grid(True)
@@ -176,7 +185,7 @@ def plot_motion(data, activity, name, window_size=5):
     axes[3].set_ylabel("Total Acceleration (m/s^2)")
     axes[3].legend()
     axes[3].grid(True)
-    plt.suptitle("Acceleration VS Time for "+name+" | "+activity, fontsize=20)
+    plt.suptitle("Acceleration VS Time for "+name+" - "+activity, fontsize=20)
 
 def plot_average(data, activity, name):
     fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
@@ -187,8 +196,12 @@ def plot_histogram(data, activity, name):
     return 1
 
 def plot_segmented(data, slice=1):
-    fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
-    return 1
+    data_slice = data.sample(n=slice)
+
+    # Normalize Time Slice to not hinder data visualization
+    data_slice["Time (s)"] = data_slice["Time (s)"]/10
+    plt.figure(figsize=(20, 10))
+    plt.bar(categories[:5], data_slice.iloc[0, 0:5].tolist())
 
 i = 0
 for data in total_data:
@@ -208,7 +221,7 @@ for data in total_data:
     i += 1
 
 # Plot Segmented Slice here
-# plot_segmented(final_data)
+#plot_segmented(final_data)
 plt.show()
 
 # Preprocessing
@@ -216,58 +229,85 @@ final_data = final_data.iloc[:, 0:4]
 final_data = final_data.rolling(window=5).mean()
 
 # Feature Extraction
-window_size = 5
-features = pd.DataFrame()
-final_features = final_data
-for column in final_features.columns:
-    feature_column = pd.DataFrame()
-    feature_column['mean'] = final_features[column].rolling(window=window_size).mean()
-    feature_column['std'] = final_features[column].rolling(window=window_size).std()
-    feature_column['max'] = final_features[column].rolling(window=window_size).max()
-    feature_column['min'] = final_features[column].rolling(window=window_size).min()
-    feature_column['kurtosis'] = final_features[column].rolling(window=window_size).kurt()
-    feature_column['skew'] = final_features[column].rolling(window=window_size).skew()
-    feature_column['median'] = final_features[column].rolling(window=window_size).median()
-    feature_column['z-score'] = (final_features[column]-feature_column['mean']) / feature_column['std']
-    feature_column['range'] = feature_column['max'] - feature_column['min']
-    feature_column['variance'] = final_features[column].rolling(window=window_size).var()
-    features = pd.concat([features, feature_column], axis=1).dropna()
+def feature_extraction(final_data, window_size=5):
+    features = pd.DataFrame()
+    final_features = final_data
+    for column in final_features.columns:
+        feature_column = pd.DataFrame()
+        feature_column['mean'] = final_features[column].rolling(window=window_size).mean()
+        feature_column['std'] = final_features[column].rolling(window=window_size).std()
+        feature_column['max'] = final_features[column].rolling(window=window_size).max()
+        feature_column['min'] = final_features[column].rolling(window=window_size).min()
+        feature_column['kurtosis'] = final_features[column].rolling(window=window_size).kurt()
+        feature_column['skew'] = final_features[column].rolling(window=window_size).skew()
+        feature_column['median'] = final_features[column].rolling(window=window_size).median()
+        feature_column['z-score'] = (final_features[column]-feature_column['mean']) / feature_column['std']
+        feature_column['range'] = feature_column['max'] - feature_column['min']
+        feature_column['variance'] = final_features[column].rolling(window=window_size).var()
+        features = pd.concat([features, feature_column], axis=1).dropna()
+        # Add more features
+        return features
+
+    # Actual z-score calculation/standardization
     # final_features[column] = final_features[column] - feature_column['mean']
     # final_features[column] = final_features[column] / feature_column['std']
 
 # Export features to a csv (Cause it's cool)
-features.to_csv('features.csv', index=False)
-
-print(features)
+# features.iloc[:, :10].to_csv('features.csv', index=False)
+    
+features = feature_extraction(final_data)
+print(f"Features Shape --> {features.shape}")
+print(f"\nFeatures (mean): \n{features.mean()}\n")
 
 # Normalization
 final_data = final_data.dropna()
 final_data = scaler.fit_transform(final_data)
-print(final_data)
+print(f"Mean after normalzation is {round(final_data.mean())}\n")
 
 # Classification
 model = LogisticRegression(max_iter=10000)
-clf = make_pipeline(scaler, model) # make pipeline clf
-clf.fit(X_train.dropna(), Y_train.dropna()) # fit pipeline
+clf = make_pipeline(scaler, model)
+clf.fit(X_train.dropna(), Y_train.dropna())
 
-Y_pred = clf.predict(X_test.dropna()) # prediction
-y_clf_prob = clf.predict_proba(X_test.dropna()) # probability
-print('Y_pred is:', Y_pred)
-print('y_clf_prob is:', y_clf_prob)
+# Predictions
+Y_pred = clf.predict(X_test.dropna())
+Y_clf_prob = clf.predict_proba(X_test.dropna())
 
-acc = accuracy_score(Y_test, Y_pred) # accuracy
-print('accuracy is:', acc)
+# Print numpy array shapes
+print('Y_pred:', Y_pred)
+print('Y_clf_prob:', Y_clf_prob)
+print('\nY_pred Shape -->', Y_pred.shape)
+print('Y_clf_prob Shape -->', Y_clf_prob.shape)
 
-recall = recall_score(Y_test, Y_pred) # recall
-print('recall is:', recall)
+# Transfer Data to HDF5
+with h5py.File("main_data.hdf5", 'a') as hdf:
+    analyzed = hdf.create_group('/analysis')
+    pred_df = pd.DataFrame(Y_pred)
+    clf_pdf = pd.DataFrame(Y_clf_prob)
+    Y_out = pd.concat([pred_df, clf_pdf], axis=1)
+    analyzed.create_dataset('predictions', data=Y_out)
+    analyzed.create_dataset("features",data=features)
 
-cm = confusion_matrix(Y_test, Y_pred) # confusion matrix
-cm_display = ConfusionMatrixDisplay(cm).plot() # plot cm
+    
+
+# Calculate prediction output
+accuracy = accuracy_score(Y_test, Y_pred)
+recall = recall_score(Y_test, Y_pred)
+area_under_curve = roc_auc_score(Y_test, Y_clf_prob[:, 1])
+
+# Print prediction outputs
+print('\nAccuracy:', accuracy)
+print('Recall:', recall)
+print('AUC:', area_under_curve)
+
+# Print Confusion Matrix
+cm = confusion_matrix(Y_test, Y_pred)
+cm_display = ConfusionMatrixDisplay(cm).plot()
 plt.show()
-auc = roc_auc_score(Y_test, y_clf_prob[:, 1]) # AUC
-print('the AUC is:', auc)
 
-fpr, tpr, thresholds = roc_curve(Y_test, y_clf_prob[:, 1], pos_label=clf.classes_[1]) # FPR/TPR
-roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=auc).plot() # plot ROC
+# Print Accuracy Curve
+fpr, tpr, thresholds = roc_curve(Y_test, Y_clf_prob[:, 1], pos_label=clf.classes_[1])
+roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=area_under_curve).plot()
 plt.show()
+
 # model.predict() # Put DataFrame in here
