@@ -45,22 +45,20 @@ for file in filepaths:
         os.remove(file)
 
 def segment(dataset, window_size=5):
-    # Calculate the number of windows
+    # Calculate window numbers
     num_windows = int(dataset['Time (s)'].iloc[-1] // window_size) + 1
-
-    # Initialize an empty list to hold the dataframes
-    grouped = []
+    segments = []
 
     # Loop over each window
     for i in range(num_windows):
         # Get the start and end times for this window
-        start_time = i * window_size
-        end_time = (i + 1) * window_size
+        start = i * window_size
+        end = (i + 1) * window_size
 
         # Create a new dataframe for this window
-        window_df = dataset[(dataset['Time (s)'] >= start_time) & (dataset['Time (s)'] < end_time)].copy()
+        window_df = dataset[(dataset['Time (s)'] >= start) & (dataset['Time (s)'] < end)].copy()
         # Append the new dataframe to the list
-        grouped.append(window_df)
+        segments.append(window_df)
 
     return grouped
 
