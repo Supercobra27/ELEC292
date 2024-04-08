@@ -49,18 +49,16 @@ def segment(dataset, window_size=5):
     num_windows = int(dataset['Time (s)'].iloc[-1] // window_size) + 1
     segments = []
 
-    # Loop over each window
+    # go over each iter
     for i in range(num_windows):
-        # Get the start and end times for this window
+        # Get time lengths
         start = i * window_size
         end = (i + 1) * window_size
-
-        # Create a new dataframe for this window
         window_df = dataset[(dataset['Time (s)'] >= start) & (dataset['Time (s)'] < end)].copy()
-        # Append the new dataframe to the list
+        # Add it to the list
         segments.append(window_df)
 
-    return grouped
+    return segments
 
 def shuffle(data):
     np.random.shuffle(data)
