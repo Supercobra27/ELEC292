@@ -1,4 +1,5 @@
 # Author(s): Ryan Silverberg, Foster Ecklund, Julia Zigelstein
+from tkinter import messagebox
 import pandas as pd
 import os
 import h5py
@@ -72,43 +73,6 @@ def label(csv, label):
     data = pd.read_csv(csv)
     data["label"] = label
     return data
-
-#create and return a graph from a CSV file
-def create_graph(csv_file):
-    #need to add graph for 1/0 walking/jumping
-    df = pd.read_csv(csv_file)
-    fig, ax = plt.subplots()
-    ax.plot(df["Time (s)"], df["Linear Acceleration z (m/s^2)"])
-    ax.set_title("Graph from " + os.path.basename(csv_file))
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Linear Acceleration z (m/s^2)")
-    ax.set_ylim([-75, 75])
-    return fig
-
-# Function to update the displayed graph
-def load_file():
-    global canvas, csv_out
-    csv_in = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
-    
-    #call classifier
-    csv_out = csv_in
-
-    if canvas:
-        canvas.get_tk_widget().destroy()  # Destroy the previous canvas
-    fig = create_graph(csv_out)
-    canvas = FigureCanvasTkAgg(fig, master=app)
-    canvas.draw()
-    canvas.get_tk_widget().pack()
-
-def save_file():
-    global csv_out
-    save_file = filedialog.asksaveasfilename(defaultextension =".csv", 
-                                            filetypes = [("CSV files", "*.csv")], initialfile = csv_out)
-
-    if save_file:
-        content = pd.read_csv(csv_out)
-        content.to_csv(save_file, index = False)
-        messagebox.showinfo("Success", "File Saved")
 
 for csv in csvs:
     if csv.find("Walk") != -1:
@@ -232,6 +196,7 @@ def plot_motion(data, activity, name, window_size=5):
     axes[3].legend()
     axes[3].grid(True)
     plt.suptitle("Acceleration VS Time for "+name+" - "+activity, fontsize=20)
+    return fig
 
 def plot_average(data, activity, name):
     fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
@@ -248,6 +213,7 @@ def plot_segmented(data, slice=1):
     data_slice["Time (s)"] = data_slice["Time (s)"]/10
     plt.figure(figsize=(20, 10))
     plt.bar(categories[:5], data_slice.iloc[0, 0:5].tolist())
+    plot_motion(data_slice, 'none', 'shuffled')
 
 i = 0
 for data in total_data:
@@ -266,7 +232,6 @@ for data in total_data:
     #plot_histogram(data, activity, name)
     i += 1
 
-# Plot Segmented Slice here
 #plot_segmented(final_data)
 plt.show()
 
@@ -306,18 +271,33 @@ print(f"Features Shape --> {features.shape}")
 print(f"\nFeatures (mean): \n{features.mean()}\n")
 
 # Normalization
+X_train = feature_extraction(X_train)
+X_test = feature_extraction(X_test)
+
 final_data = final_data.dropna()
-final_data = scaler.fit_transform(final_data)
-print(f"Mean after normalzation is {round(final_data.mean())}\n")
+fit = scaler.fit(X_train)
+X_train = fit.transform(X_train)
+X_test = fit.transform(X_test)
+Y_train = Y_train.values.flatten()
+Y_test = Y_test.values.flatten()
+print(f"Mean after normalzation is {round(X_train.mean())}\n")
 
 # Classification
 model = LogisticRegression(max_iter=10000)
 clf = make_pipeline(scaler, model)
-clf.fit(X_train.dropna(), Y_train.dropna())
+
+# Trimming
+len_X = len(X_train)
+len_Y = len(Y_train)
+min_len = min(len_X, len_Y)
+X_train = X_train[:min_len]
+Y_train = Y_train[:min_len]
+
+clf.fit(X_train, Y_train)
 
 # Predictions
-Y_pred = clf.predict(X_test.dropna())
-Y_clf_prob = clf.predict_proba(X_test.dropna())
+Y_pred = clf.predict(X_test)
+Y_clf_prob = clf.predict_proba(X_test)
 
 # Print numpy array shapes
 print('Y_pred:', Y_pred)
@@ -337,6 +317,11 @@ with h5py.File("main_data.hdf5", 'a') as hdf:
     
 
 # Calculate prediction output
+len_X = len(Y_test)
+len_Y = len(Y_pred)
+min_len = min(len_X, len_Y)
+Y_test = Y_test[:min_len]
+Y_pred = Y_pred[:min_len]
 accuracy = accuracy_score(Y_test, Y_pred)
 recall = recall_score(Y_test, Y_pred)
 area_under_curve = roc_auc_score(Y_test, Y_clf_prob[:, 1])
@@ -355,3 +340,70 @@ plt.show()
 fpr, tpr, thresholds = roc_curve(Y_test, Y_clf_prob[:, 1], pos_label=clf.classes_[1])
 roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=area_under_curve).plot()
 plt.show()
+
+#create and return a graph from a CSV file
+def create_graph(csv_file):
+    #need to add graph for 1/0 walking/jumping
+    df = pd.read_csv(csv_file)
+    df2 = df
+    df2_time = df2.iloc[:, 0]
+    fig = plot_motion(df2, 'example', os.path.basename(csv_file))
+    # ax.plot(df["Time (s)"], df["Linear Acceleration z (m/s^2)"])
+    # ax.set_title("Graph from " + os.path.basename(csv_file))
+    # ax.set_xlabel("Time (s)")
+    # ax.set_ylabel("Linear Acceleration z (m/s^2)")
+    # ax.set_ylim([-75, 75])
+    return fig, df
+
+# Function to update the displayed graph
+def load_file():
+    global canvas, csv_in, csv_out
+    csv_in = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+
+    csv_out = csv_in
+
+    if canvas:
+        canvas.get_tk_widget().destroy()  # Destroy the previous canvas
+    fig, csv_in = create_graph(csv_out)
+    #call classifier
+    csv_in = pd.read_csv(csv_out)
+
+   # csv_in.drop(["Linear Acceleration x (m/s^2)",
+    #"Linear Acceleration y (m/s^2)","Absolute acceleration (m/s^2)","label"])
+    csv_segments = segment(csv_in)
+    for window in csv_segments:
+        window.drop(["Time (s)"], axis=1, inplace=True)
+    
+    sma = [window.rolling(5).mean().dropna() for window in csv_segments]
+    sma_features = feature_extraction(sma)
+    sma_norm = fit.transform(sma_features)
+
+    prediction = model.predict(sma_norm) # Put DataFrame in here
+    print(f"\nPrediction: {prediction}")
+    canvas = FigureCanvasTkAgg(fig, master=app)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
+
+def save_file():
+    global csv_out
+    save_file = filedialog.asksaveasfilename(defaultextension =".csv", 
+                                            filetypes = [("CSV files", "*.csv")], initialfile = csv_out)
+
+    if save_file:
+        content = pd.read_csv(csv_out)
+        content.to_csv(save_file, index = False)
+        messagebox.showinfo("Success", "File Saved")
+
+# Main Tkinter app
+app = tk.Tk()
+app.title("Graphs")
+
+#button loads a file
+load_button = tk.Button(app, text="Load File", command = load_file)
+load_button.pack()
+
+#button saves file
+save_button = tk.Button(app, text = "Save File", command = save_file)
+save_button.pack()
+
+app.mainloop()
